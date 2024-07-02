@@ -1,0 +1,175 @@
+---
+title: "Recoding Crosswalks"
+author: "Kassie Breest"
+date: "2024-07-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Packages, message=FALSE, warning=FALSE}
+
+#install.packages("haven")
+
+library(tidyverse)
+library(readxl)
+library(writexl)
+library(purrr)
+library(janitor)
+library(flextable)
+library(officer)
+library(lubridate)
+library(openxlsx)
+library(rio)
+library(dplyr)
+library(haven)
+```
+
+
+# Read in Data
+```{r}
+#master dataset
+BAA_master <- read_dta("J:/EPPR/Active Studies/Boston Athletic Association_FY24/Data/BAA survey data master dataset.dta")
+
+#crosswalks
+Q2_cross <- read_excel("Q2.xlsx")
+Q5_cross <- read_excel("Q5.xlsx")
+Q6_cross <- read_excel("Q6.xlsx")
+Q7_cross <- read_excel("Q7.xlsx")
+Q15_cross <- read_excel("Q15.xlsx")
+
+```
+
+# Join data
+
+```{r}
+#Q6: city staying in
+duplicated_Q6_orig <- Q6_cross %>% 
+  group_by(Q6_orig) %>% 
+  filter(n() > 1)
+
+Q6_cross_unique <- Q6_cross %>% 
+  distinct(Q6_orig, .keep_all = TRUE)
+
+BAA_master_merge <- left_join(BAA_master, Q6_cross_unique, by = c("Q6" = "Q6_orig"))
+
+#Q7:
+duplicated_Q7_orig <- Q7_cross %>% 
+  group_by(Q7_7_TEXT_orig) %>% 
+  filter(n() > 1)
+
+Q7_cross_unique <- Q7_cross %>% 
+  distinct(Q7_7_TEXT_orig, .keep_all = TRUE)
+
+BAA_master_merge <- left_join(BAA_master_merge, Q7_cross_unique, by = c("Q7_7_TEXT" = "Q7_7_TEXT_orig"))
+
+#Q15
+duplicated_Q15_orig <- Q15_cross %>% 
+  group_by(Q15_orig) %>% 
+  filter(n() > 1)
+
+Q15_cross_unique <- Q15_cross %>% 
+  distinct(Q15_orig, .keep_all = TRUE)
+
+BAA_master_merge <- left_join(BAA_master_merge, Q15_cross_unique, by = c("Q15_2_TEXT" = "Q15_orig"))
+
+#Q2
+duplicated_Q2_orig <- Q2_cross %>% 
+  group_by(Q2_TEXT) %>% 
+  filter(n() > 1)
+
+Q2_cross_unique <- Q2_cross %>% 
+  distinct(Q2_TEXT, .keep_all = TRUE)
+
+BAA_master_merge <- left_join(BAA_master_merge, Q2_cross_unique, by = c("Q2" = "Q2_TEXT"))
+
+#Q2
+duplicated_Q5_orig <- Q5_cross %>% 
+  group_by(Q5_4_TEXT_orig) %>% 
+  filter(n() > 1)
+
+Q5_cross_unique <- Q5_cross %>% 
+  distinct(Q5_4_TEXT_orig, .keep_all = TRUE)
+
+BAA_master_merge <- left_join(BAA_master_merge, Q5_cross_unique, by = c("Q5_4_TEXT" = "Q5_4_TEXT_orig"))
+
+
+```
+
+```{r}
+BAA_master_merge <- BAA_master_merge %>%
+  select(ResponseId,
+          Finished,
+          Q2,
+          Q2_orig,
+          City,
+          State,
+          County,
+          Q3,
+          Q4_1,
+          Q4_4,
+          Q4_2,
+          Q5,
+          Q5_4_TEXT,
+          Q5_4_TEXT.y,
+          Q6,
+          Q6.y,
+          Q7_1,
+          Q7_2,
+          Q7_3,
+          Q7_4,
+          Q7_5,
+          Q7_6,
+          Q7_7,
+          Q7_7_TEXT,
+          Q7_7_TEXT.y,
+          Q8,
+          Q9,
+          Q10,
+          Q11,
+          Q12_7,
+          Q12_1,
+          Q12_2,
+          Q12_3,
+          Q12_4,
+          Q12_5,
+          Q12_6,
+          Q15.x,
+          Q15_2_TEXT,
+          Q15.y,
+          number_of_nights,
+          nightly_rate,
+          spend,
+          StartDate,
+          EndDate,
+          RecordedDate,
+          Status,
+          IPAddress,
+          Progress,
+          Duration__in_seconds_,
+          LocationLatitude,
+          LocationLongitude,
+          DistributionChannel,
+          UserLanguage,
+          Q_RecaptchaScore
+          )
+
+
+```
+
+#Export
+```{r}
+clean_names <- function(names) {
+  names <- gsub("[^a-zA-Z0-9_]", "_", names)  # Replace non-alphanumeric characters with underscores
+  return(names)
+}
+
+colnames(BAA_master_merge) <- clean_names(colnames(BAA_master_merge))
+
+print(colnames(BAA_master_merge))
+
+write_dta(BAA_master_merge, "BAA_master_merge.dta")
+```
+
