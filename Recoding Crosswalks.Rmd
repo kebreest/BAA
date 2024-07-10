@@ -53,7 +53,7 @@ duplicated_Q6_orig <- Q6_cross %>%
 Q6_cross_unique <- Q6_cross %>% 
   distinct(Q6_orig, .keep_all = TRUE)
 
-BAA_master_merge <- left_join(BAA_master, Q6_cross_unique, by = c("Q6" = "Q6_orig"))
+BAA <- left_join(BAA_master, Q6_cross_unique, by = c("Q6" = "Q6_orig"))
 
 #Q7:
 duplicated_Q7_orig <- Q7_cross %>% 
@@ -63,7 +63,7 @@ duplicated_Q7_orig <- Q7_cross %>%
 Q7_cross_unique <- Q7_cross %>% 
   distinct(Q7_7_TEXT_orig, .keep_all = TRUE)
 
-BAA_master_merge <- left_join(BAA_master_merge, Q7_cross_unique, by = c("Q7_7_TEXT" = "Q7_7_TEXT_orig"))
+BAA <- left_join(BAA, Q7_cross_unique, by = c("Q7_7_TEXT" = "Q7_7_TEXT_orig"))
 
 #Q15
 duplicated_Q15_orig <- Q15_cross %>% 
@@ -73,7 +73,7 @@ duplicated_Q15_orig <- Q15_cross %>%
 Q15_cross_unique <- Q15_cross %>% 
   distinct(Q15_orig, .keep_all = TRUE)
 
-BAA_master_merge <- left_join(BAA_master_merge, Q15_cross_unique, by = c("Q15_2_TEXT" = "Q15_orig"))
+BAA <- left_join(BAA, Q15_cross_unique, by = c("Q15_2_TEXT" = "Q15_orig"))
 
 #Q2
 duplicated_Q2_orig <- Q2_cross %>% 
@@ -83,7 +83,7 @@ duplicated_Q2_orig <- Q2_cross %>%
 Q2_cross_unique <- Q2_cross %>% 
   distinct(Q2_TEXT, .keep_all = TRUE)
 
-BAA_master_merge <- left_join(BAA_master_merge, Q2_cross_unique, by = c("Q2" = "Q2_TEXT"))
+BAA <- left_join(BAA, Q2_cross_unique, by = c("Q2" = "Q2_TEXT"))
 
 #Q2
 duplicated_Q5_orig <- Q5_cross %>% 
@@ -93,54 +93,149 @@ duplicated_Q5_orig <- Q5_cross %>%
 Q5_cross_unique <- Q5_cross %>% 
   distinct(Q5_4_TEXT_orig, .keep_all = TRUE)
 
-BAA_master_merge <- left_join(BAA_master_merge, Q5_cross_unique, by = c("Q5_4_TEXT" = "Q5_4_TEXT_orig"))
+BAA <- left_join(BAA, Q5_cross_unique, by = c("Q5_4_TEXT" = "Q5_4_TEXT_orig"))
 
-
+BAA_master_merge <- BAA
 ```
 
 ```{r}
+
+incompletes <- BAA_master_merge %>%
+  filter(Finished == 0)
+
 BAA_master_merge <- BAA_master_merge %>%
+  mutate(RecordedDate = ymd_hms(RecordedDate))
+
+# Filter out observations before 04/20/24
+prev <- BAA_master_merge %>%
+  filter(RecordedDate >= ymd("2024-04-20"))
+
+prev <- BAA_master_merge %>%
+  filter(RecordedDate < "2024-04-19")
+
+#recode Q5  
+BAA_master_merge <- BAA_master_merge %>%
+  filter(DistributionChannel != "preview")%>%
+  filter(Progress > 50)%>%
+  filter(RecordedDate < "2024-04-19")%>%
+  rename(zipcode = Q2,
+         city = City,
+         state = State,
+         county = County,
+          reason_for_visit = Q3,
+          event_friend_5k = Q4_1,
+          event_friend_marathon = Q4_2,
+          event_friend_1m = Q4_4,
+          overnight = Q5,
+          overnight_other = Q5_4_TEXT.y,
+          overnight_loc = Q6.y,
+          activity_foodbev = Q7_1,
+          activity_shop = Q7_2,
+          activity_museum = Q7_3,
+          activity_other_event = Q7_4,
+          activity_casino = Q7_5,
+          activity_tour = Q7_6,
+          activity_other = Q7_7,
+          activity_other_txt = Q7_7_TEXT.y,
+          party_size = Q8,
+          event_marathon = Q12_7,
+          event_expo = Q12_1,
+          event_fanfest = Q12_2,
+          event_postparty = Q12_3,
+          event_5k = Q12_4,
+          event_1m = Q12_5,
+          event_runpub = Q12_6,
+          country_usa = Q15.x,
+          country_other = Q15.y) 
+
+BAA_master_merge <- BAA_master_merge %>%
+  mutate(overnight = case_when(
+    overnight == 1 ~ "Hotel",
+    overnight == 2 ~ "STR",
+    overnight == 3 ~ "Friends/Family",
+    overnight == 5 ~ "No",
+    overnight == 4 ~ overnight_other 
+  ))
+
+BAA_master_merge <- BAA_master_merge %>%
+  mutate(country = case_when(
+    country_usa == 1 ~ "USA",
+    country_usa == 2 ~ country_other
+  ))
+
+BAA_master_merge <- BAA_master_merge %>%
+  mutate(activity_foodbev = case_when(
+    activity_other_txt == "Go out for food or drinks" ~ 1,
+    TRUE ~ activity_foodbev  # Preserve original values
+  ),
+  activity_shop = case_when(
+    activity_other_txt == "Go shopping" ~ 1,
+    TRUE ~ activity_shop  # Preserve original values
+  ),
+  activity_museum = case_when(
+    activity_other_txt == "Visit a museum or gallery" ~ 1,
+    TRUE ~ activity_museum  # Preserve original values
+  ),
+  activity_other_event = case_when(
+    activity_other_txt == "Go to an another event unrelated to marathon, e.g. other sporting event, concert, performance, etc." ~ 1,
+    TRUE ~ activity_other_event  # Preserve original values
+  ),
+  activity_tour = case_when(
+    activity_other_txt == "Go on a sightseeing tour" ~ 1,
+    activity_other_txt == "Historic tourist attractions" ~ 1,
+    activity_other_txt == "Independent sightseeing"  ~ 1,
+    TRUE ~ activity_tour  # Preserve original values
+  ),
+  activity_college_visit = case_when(
+    activity_other_txt == "College visit" ~ 1,
+    TRUE ~ 0  # Preserve original values
+  ),  
+  activity_virtual = case_when(
+    activity_other_txt == "Virtual attendee" ~ 1,
+    TRUE ~ 0 # Preserve original values
+  ),  
+  activity_other = case_when(
+    activity_other_txt == "Other"  ~ 1,
+    TRUE ~ activity_other  # Preserve original values
+  ), 
+  activity_none = case_when(
+    activity_other_txt == "None of the above"   ~ 1,
+    TRUE ~ 0  # Preserve original values
+  )
+  )
+
+
+BAA_master_merge <- BAA_master_merge%>%
   select(ResponseId,
-          Finished,
-          Q2,
-          Q2_orig,
-          City,
-          State,
-          County,
-          Q3,
-          Q4_1,
-          Q4_4,
-          Q4_2,
-          Q5,
-          Q5_4_TEXT,
-          Q5_4_TEXT.y,
-          Q6,
-          Q6.y,
-          Q7_1,
-          Q7_2,
-          Q7_3,
-          Q7_4,
-          Q7_5,
-          Q7_6,
-          Q7_7,
-          Q7_7_TEXT,
-          Q7_7_TEXT.y,
-          Q8,
-          Q9,
-          Q10,
-          Q11,
-          Q12_7,
-          Q12_1,
-          Q12_2,
-          Q12_3,
-          Q12_4,
-          Q12_5,
-          Q12_6,
-          Q15.x,
-          Q15_2_TEXT,
-          Q15.y,
+          city,
+          state,
+          country,
+          county,
+          zipcode,
+          reason_for_visit,
+          event_friend_5k,
+          event_friend_marathon,
+          event_friend_1m,
+          event_marathon,
+          event_expo,
+          event_fanfest,
+          event_postparty,
+          event_5k,
+          event_1m,
+          event_runpub,
+          party_size,
+          overnight,
           number_of_nights,
+          overnight_loc,
           nightly_rate,
+          activity_foodbev,
+          activity_shop,
+          activity_museum,
+          activity_other_event,
+          activity_casino,
+          activity_tour,
+          activity_other,
+          activity_other_txt,
           spend,
           StartDate,
           EndDate,
@@ -148,6 +243,7 @@ BAA_master_merge <- BAA_master_merge %>%
           Status,
           IPAddress,
           Progress,
+          Finished,
           Duration__in_seconds_,
           LocationLatitude,
           LocationLongitude,
@@ -157,6 +253,61 @@ BAA_master_merge <- BAA_master_merge %>%
           )
 
 
+
+
+activity2 <- BAA_master_merge %>%
+  group_by(activity_other_txt)%>%
+  summarise(foodbev = sum(activity_foodbev),
+            shop = sum(activity_shop),
+            museum = sum(activity_museum),
+            other_event = sum(activity_other_event),
+            casino = sum(activity_casino),
+            tour = sum(activity_tour),
+            other = sum(activity_other),
+            virtual = sum(activity_virtual),
+            college = sum(activity_college_visit),
+            none = sum(activity_none))
+
+activity3 <- BAA_master_merge %>%
+  group_by(State)%>%
+  summarise(foodbev = sum(activity_foodbev),
+            shop = sum(activity_shop),
+            museum = sum(activity_museum),
+            other_event = sum(activity_other_event),
+            casino = sum(activity_casino),
+            tour = sum(activity_tour),
+            other = sum(activity_other),
+            virtual = sum(activity_virtual),
+            college = sum(activity_college_visit),
+            none = sum(activity_none))
+
+
+activity3 <- BAA_master_merge %>%
+  replace_na(list(
+    activity_foodbev = 0,
+    activity_shop = 0,
+    activity_museum = 0,
+    activity_other_event = 0,
+    activity_casino = 0,
+    activity_tour = 0,
+    activity_other = 0,
+    activity_virtual = 0,
+    activity_college_visit = 0,
+    activity_none = 0
+  )) %>%
+  group_by(State) %>%
+  summarise(
+    foodbev = sum(activity_foodbev),
+    shop = sum(activity_shop),
+    museum = sum(activity_museum),
+    other_event = sum(activity_other_event),
+    casino = sum(activity_casino),
+    tour = sum(activity_tour),
+    other = sum(activity_other),
+    virtual = sum(activity_virtual),
+    college = sum(activity_college_visit),
+    none = sum(activity_none)
+  )
 ```
 
 #Export
@@ -170,6 +321,6 @@ colnames(BAA_master_merge) <- clean_names(colnames(BAA_master_merge))
 
 print(colnames(BAA_master_merge))
 
-write_dta(BAA_master_merge, "BAA_master_merge.dta")
+write_dta(BAA_master_merge, "_final/BAA_master_merge.dta")
 ```
 
